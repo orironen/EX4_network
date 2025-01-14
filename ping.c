@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Usage: %s <destination_ip>\n", argv[0]);
         return 1;
+
     }
     struct sockaddr_in destination_address4;
     struct sockaddr_in6 destination_address6;
