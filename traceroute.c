@@ -11,6 +11,22 @@
 #include <getopt.h>
 #include "config.h"
 
+struct ipheader
+{
+    unsigned char iph_ihl : 5,       // IP header length
+        iph_ver : 4;                 // IP version
+    unsigned char iph_tos;           // Type of service
+    unsigned short int iph_len;      // IP Packet length (data + header)
+    unsigned short int iph_ident;    // Identification
+    unsigned short int iph_flag : 3, // Fragmentation flags
+        iph_offset : 13;             // Flags offset
+    unsigned char iph_ttl : 1;       // Time to Live
+    unsigned char iph_protocol : 1;  // Protocol type
+    unsigned short int iph_chksum;   // IP datagram checksum
+    struct sockaddr iph_sourceip;    // Source IP address
+    struct in_addr iph_destip;       // Destination IP address
+};
+
 int main(int argc, char *argv[])
 {
     // find address
@@ -18,10 +34,10 @@ int main(int argc, char *argv[])
     getopt(argc, &argv, &option);
     if (argc != 3 || option[0] != "a")
     {
-        printf(stderr, "Usage: %s -a <dest-addr>\n", argv[0]);
+        fprintf(stderr, "Usage: %s -a <dest-addr>\n", argv[0]);
         return 1;
     }
-    // set dest address
+    // set up dest addr
     struct sockaddr_in destination_address;
     memset(&destination_address, 0, sizeof(destination_address));
     destination_address.sin_family = AF_INET;
@@ -43,16 +59,15 @@ int main(int argc, char *argv[])
             fprintf(stderr, "You need to run the program with sudo.\n");
         return 1;
     }
-    int ttl = 1;
-    if (setsockopt(sock, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0)
-    {
-        perror("Can't set TTL");
-        return 1;
-    }
     // create ICMP header
     struct icmphdr icmp_header;
     icmp_header.type = ICMP_ECHO;
     icmp_header.code = 0;
     icmp_header.un.echo.id = htons(getpid());
     int seq = 0;
+    // create poll structure
+    struct pollfd fds[1];
+    fds[0].fd = sock;
+    fds[0].events = POLLIN;
+    printf("traceroute to %s, %d hops max\n", argv[1], MAX_HOPS);
 }

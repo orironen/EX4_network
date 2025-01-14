@@ -1,2 +1,9 @@
+# ignores executables
+*
+!*.*
+!*/
+# ignores object files
+*.o
+# ignores internal vscode and jetbrains folders
 .idea
 .vscode

@@ -16,7 +16,7 @@ CFLAGS = -Wall -Wextra -Werror -std=c99 -pedantic
 RM = rm -f
 
 # Header files.
-HEADERS = ping.h
+HEADERS = config.h
 
 # Executable files.
 EXECS = ping traceroute
@@ -33,14 +33,23 @@ all: $(EXECS)
 # Alias for the default target.
 default: all
 
-%: %.c
+$(EXECS): %: %.o config.o
+	$(CC) $^ -o $@
+
+%.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-runp: $(EXECS)
-	sudo ./$< $(IP)
+runp: ping
+	sudo ./ping -a $(IP)
 
-runsp: $(EXECS)
-	sudo strace ./$< $(IP)
+runsp: ping
+	sudo strace ./ping -a $(IP)
+
+runt: traceroute
+	sudo ./traceroute -a $(IP)
+
+runsp: ping
+	sudo strace ./traceroute -a $(IP)
 
 clean:
 	$(RM) *.o *.so $(EXECS)
