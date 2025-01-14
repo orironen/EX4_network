@@ -30,6 +30,10 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Error: \"%s\" is not a valid IPv4 address\n", argv[1]);
         return 1;
     }
+    // set msg
+    char buffer[BUFFER_SIZE] = {0};
+    char *msg = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$^&*()_+{}|:<>?~`-=[]',.";
+    int payload_size = strlen(msg) + 1;
     // create socket
     int sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     if (sock < 0)
@@ -39,10 +43,10 @@ int main(int argc, char *argv[])
             fprintf(stderr, "You need to run the program with sudo.\n");
         return 1;
     }
-    int ttl;
+    int ttl = 1;
     if (setsockopt(sock, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0)
     {
-        perror("can't set TTL");
+        perror("Can't set TTL");
         return 1;
     }
     // create ICMP header
