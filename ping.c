@@ -5,20 +5,20 @@
  * @date 2024-02-13
  * @brief A simple implementation of the ping program using raw sockets.
  * @note The program sends an ICMP ECHO REQUEST packet to the destination address and waits for an ICMP ECHO REPLY packet.
-*/
+ */
 
-#include <stdio.h> // Standard input/output definitions
-#include <arpa/inet.h> // Definitions for internet operations (inet_pton, inet_ntoa)
-#include <netinet/in.h> // Internet address family (AF_INET, AF_INET6)
-#include <netinet/ip.h> // Definitions for internet protocol operations (IP header)
+#include <stdio.h>			 // Standard input/output definitions
+#include <arpa/inet.h>		 // Definitions for internet operations (inet_pton, inet_ntoa)
+#include <netinet/in.h>		 // Internet address family (AF_INET, AF_INET6)
+#include <netinet/ip.h>		 // Definitions for internet protocol operations (IP header)
 #include <netinet/ip_icmp.h> // Definitions for internet control message protocol operations (ICMP header)
-#include <poll.h> // Poll API for monitoring file descriptors (poll)
-#include <errno.h> // Error number definitions. Used for error handling (EACCES, EPERM)
-#include <string.h> // String manipulation functions (strlen, memset, memcpy)
-#include <sys/socket.h> // Definitions for socket operations (socket, sendto, recvfrom)
-#include <sys/time.h> // Time types (struct timeval and gettimeofday)
-#include <unistd.h> // UNIX standard function definitions (getpid, close, sleep)
-#include "ping.h" // Header file for the program (calculate_checksum function and some constants)
+#include <poll.h>			 // Poll API for monitoring file descriptors (poll)
+#include <errno.h>			 // Error number definitions. Used for error handling (EACCES, EPERM)
+#include <string.h>			 // String manipulation functions (strlen, memset, memcpy)
+#include <sys/socket.h>		 // Definitions for socket operations (socket, sendto, recvfrom)
+#include <sys/time.h>		 // Time types (struct timeval and gettimeofday)
+#include <unistd.h>			 // UNIX standard function definitions (getpid, close, sleep)
+#include "config.h"			 // Header file for the program (calculate_checksum function and some constants)
 
 /*
  * @brief Main function of the program.
@@ -26,8 +26,9 @@
  * @param argv Array of command-line arguments.
  * @return 0 on success, 1 on failure.
  * @note The program requires one command-line argument: the destination IP address.
-*/
-int main(int argc, char *argv[]) {
+ */
+int main(int argc, char *argv[])
+{
 
 	// Check the number of command-line arguments.
 	if (argc != 2)
@@ -82,7 +83,7 @@ int main(int argc, char *argv[]) {
 		// Some magic constants for the error numbers, which are defined in the errno.h header file.
 		if (errno == EACCES || errno == EPERM)
 			fprintf(stderr, "You need to run the program with sudo.\n");
-		
+
 		return 1;
 	}
 
@@ -224,17 +225,17 @@ int main(int argc, char *argv[]) {
 				// The result includes the number of bytes received (the payload size),
 				// the destination IP address, the sequence number, the TTL value, and the time it takes to send and receive the packet.
 				fprintf(stdout, "%ld bytes from %s: icmp_seq=%d ttl=%d time=%.2fms\n",
-						(ntohs(ip_header->tot_len) - (ip_header->ihl * 4) - sizeof(struct icmphdr)), 
+						(ntohs(ip_header->tot_len) - (ip_header->ihl * 4) - sizeof(struct icmphdr)),
 						inet_ntoa(source_address.sin_addr),
 						ntohs(icmp_header->un.echo.sequence),
-						ip_header->ttl, 
+						ip_header->ttl,
 						pingPongTime);
 
 				// Optional: Break the loop after a certain number of requests.
 				// This will make the ping work like Windows' ping, which sends 4 requests by default.
 				// Linux default ping uses infinite requests.
 				if (seq == MAX_REQUESTS)
-				 	break;
+					break;
 			}
 
 			// If the ICMP packet isn't an ECHO REPLY packet, we need to print an error message.
@@ -250,27 +251,4 @@ int main(int argc, char *argv[]) {
 	close(sock);
 
 	return 0;
-}
-
-unsigned short int calculate_checksum(void *data, unsigned int bytes) {
-	unsigned short int *data_pointer = (unsigned short int *)data;
-	unsigned int total_sum = 0;
-
-	// Main summing loop.
-	while (bytes > 1)
-	{
-		total_sum += *data_pointer++; // Some magic pointer arithmetic.
-		bytes -= 2;
-	}
-
-	// Add left-over byte, if any.
-	if (bytes > 0)
-		total_sum += *((unsigned char *)data_pointer);
-
-	// Fold 32-bit sum to 16 bits.
-	while (total_sum >> 16)
-		total_sum = (total_sum & 0xFFFF) + (total_sum >> 16);
-
-	// Return the one's complement of the result.
-	return (~((unsigned short int)total_sum));
 }

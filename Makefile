@@ -19,7 +19,7 @@ RM = rm -f
 HEADERS = ping.h
 
 # Executable files.
-EXECS = ping
+EXECS = ping traceroute
 
 # IP address to ping.
 IP = 1.1.1.1
@@ -33,45 +33,14 @@ all: $(EXECS)
 # Alias for the default target.
 default: all
 
+%: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-############
-# Programs #
-############
-
-# Compile the ping program.
-$(EXECS): $(EXECS).o
-	$(CC) $(CFLAGS) -o $@ $^
-
-
-################
-# Run programs #
-################
-
-# Run ping program in sudo mode.
 runp: $(EXECS)
 	sudo ./$< $(IP)
 
-################
-# System Trace #
-################
-
-# Run the ping program with system trace (sudo mode).
 runsp: $(EXECS)
 	sudo strace ./$< $(IP)
 
-################
-# Object files #
-################
-
-# Compile all the C files into object files.
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
-
-#################
-# Cleanup files #
-#################
-
-# Remove all the object files, shared libraries and executables.
 clean:
 	$(RM) *.o *.so $(EXECS)
