@@ -114,9 +114,6 @@ int main(int argc, char *argv[])
         icmp_header.checksum = checksum;
         struct icmphdr *pckt_hdr = (struct icmphdr *)buffer;
         pckt_hdr->checksum = icmp_header.checksum;
-        // set time intervals between each hop
-        float packettimes[3];
-        memset(&packettimes, 0, sizeof(packettimes));
         // initialize source address
         struct sockaddr_in source_address;
         for (size_t i = 0; i < 3; i++)
