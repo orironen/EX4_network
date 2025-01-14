@@ -59,6 +59,14 @@ int main(int argc, char *argv[])
             fprintf(stderr, "You need to run the program with sudo.\n");
         return 1;
     }
+    // create IP header
+    struct ipheader iph;
+    iph.iph_destip = destination_address.sin_addr;
+    if (getsockname(sock, &iph.iph_sourceip, NULL) < 0)
+    {
+        fprintf(stderr, "Error: Invalid source address.");
+        return 1;
+    }
     // create ICMP header
     struct icmphdr icmp_header;
     icmp_header.type = ICMP_ECHO;
@@ -70,4 +78,21 @@ int main(int argc, char *argv[])
     fds[0].fd = sock;
     fds[0].events = POLLIN;
     printf("traceroute to %s, %d hops max\n", argv[1], MAX_HOPS);
+    while (1)
+    {
+        memset(buffer, 0, sizeof(buffer));
+        icmp_header.un.echo.sequence = htons(seq++);
+        icmp_header.checksum = 0;
+        iph.iph_chksum = 0;
+        // add ip header
+        memcpy(buffer, &iph, sizeof(iph));
+        // add icmp header after
+        memcpy(buffer + sizeof(iph), &icmp_header, sizeof(icmp_header));
+        // add payload after
+        memcpy(buffer + sizeof(iph) + sizeof(icmp_header), msg, payload_size);
+        // calculate checksum
+        int checksum = calculate_checksum(buffer, sizeof(iph) + sizeof(icmp_header) + payload_size);
+        iph.iph_chksum = checksum;
+        icmp_header.checksum = checksum;
+    }
 }
