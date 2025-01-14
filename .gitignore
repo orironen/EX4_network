@@ -7,3 +7,4 @@
 # ignores internal vscode and jetbrains folders
 .idea
 .vscode
+cmake-build-debug
