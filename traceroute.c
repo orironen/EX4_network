@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <unistd.h>
 #include <getopt.h>
 #include "config.h"
 
@@ -29,10 +30,22 @@ struct ipheader
 
 int main(int argc, char *argv[])
 {
+    int opt;
+    char *dest_addr = NULL;
     // find address
-    char option[argc];
-    getopt(argc, &argv, &option);
-    if (argc != 3 || option[0] != "a")
+    while ((opt = getopt(argc, argv, "a:")) >= 0)
+    {
+        switch (opt)
+        {
+        case 'a':
+            dest_addr = optarg;
+            break;
+        default:
+            fprintf(stderr, "Usage: %s -a <dest-addr>\n", argv[0]);
+            return 1;
+        }
+    }
+    if (dest_addr == NULL)
     {
         fprintf(stderr, "Usage: %s -a <dest-addr>\n", argv[0]);
         return 1;
@@ -41,7 +54,7 @@ int main(int argc, char *argv[])
     struct sockaddr_in destination_address;
     memset(&destination_address, 0, sizeof(destination_address));
     destination_address.sin_family = AF_INET;
-    if (inet_pton(AF_INET, argv[2], &destination_address.sin_addr) <= 0)
+    if (inet_pton(AF_INET, dest_addr, &destination_address.sin_addr) <= 0)
     {
         fprintf(stderr, "Error: \"%s\" is not a valid IPv4 address\n", argv[1]);
         return 1;
@@ -59,42 +72,45 @@ int main(int argc, char *argv[])
             fprintf(stderr, "You need to run the program with sudo.\n");
         return 1;
     }
-    // create IP header
-    struct ipheader iph;
-    iph.iph_destip = destination_address.sin_addr;
-    if (getsockname(sock, &iph.iph_sourceip, NULL) < 0)
-    {
-        fprintf(stderr, "Error: Invalid source address.");
-        return 1;
-    }
-    iph.iph_ttl = 1;
     // create ICMP header
     struct icmphdr icmp_header;
     icmp_header.type = ICMP_ECHO;
     icmp_header.code = 0;
     icmp_header.un.echo.id = htons(getpid());
+    // packet seq
     int seq = 0;
-    int hops = 0;
+    // no of hops
+    int hops = 1;
+    // time to live
+    int ttl = 1;
+    // if reached dest
+    int reached_dest = 0;
     // create poll structure
     struct pollfd fds[1];
     fds[0].fd = sock;
     fds[0].events = POLLIN;
-    printf("traceroute to %s, %d hops max\n", argv[1], MAX_HOPS);
+    printf("traceroute to %s, %d hops max\n", dest_addr, MAX_HOPS);
     while (1)
     {
+        // print hop num
+        printf("%d ", hops);
+        // set buff and icmp header
         memset(buffer, 0, sizeof(buffer));
         icmp_header.un.echo.sequence = htons(seq++);
         icmp_header.checksum = 0;
-        iph.iph_chksum = 0;
-        // add ip header
-        memcpy(buffer, &iph, sizeof(iph));
-        // add icmp header after
-        memcpy(buffer + sizeof(iph), &icmp_header, sizeof(icmp_header));
+        // set TTL
+        if (setsockopt(sock, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0)
+        {
+            perror("getsockopt(2)");
+            close(sock);
+            return 1;
+        }
+        // add icmp header
+        memcpy(buffer, &icmp_header, sizeof(icmp_header));
         // add payload after
-        memcpy(buffer + sizeof(iph) + sizeof(icmp_header), msg, payload_size);
+        memcpy(buffer + sizeof(icmp_header), msg, payload_size);
         // calculate checksum
-        int checksum = calculate_checksum(buffer, sizeof(iph) + sizeof(icmp_header) + payload_size);
-        iph.iph_chksum = checksum;
+        int checksum = calculate_checksum(buffer, sizeof(icmp_header) + payload_size);
         icmp_header.checksum = checksum;
         struct icmphdr *pckt_hdr = (struct icmphdr *)buffer;
         pckt_hdr->checksum = icmp_header.checksum;
@@ -109,17 +125,18 @@ int main(int argc, char *argv[])
             // get start time
             gettimeofday(&start, NULL);
             // send packet
-            if (sendto(sock, buffer, (sizeof(iph) + sizeof(icmp_header) + payload_size), 0, (struct sockaddr *)&destination_address, sizeof(destination_address)) <= 0)
+            if (sendto(sock, buffer, (sizeof(icmp_header) + payload_size), 0, (struct sockaddr *)&destination_address, sizeof(destination_address)) <= 0)
             {
                 perror("sendto(2)");
                 close(sock);
                 return 1;
             }
             // wait for reply
-            int ret = poll(fds, 1, TIMEOUT);
+            int ret = poll(fds, 1, 1000);
             if (ret == 0)
             {
-                fprintf(stderr, "Request timeout for icmp_seq %d, ignoring.\n", seq);
+                // print asterisk if timeout
+                printf(" * ");
                 continue;
             }
             else if (ret < 0)
@@ -141,28 +158,27 @@ int main(int argc, char *argv[])
                 }
                 // get end time
                 gettimeofday(&end, NULL);
+                // print source address
+                if (i == 0)
+                    printf("%s ", inet_ntoa(source_address.sin_addr));
                 struct iphdr *ip_header = (struct iphdr *)buffer;
                 struct icmphdr *icmp_header = (struct icmphdr *)(buffer + ip_header->ihl * 4);
+                // print elapsed time
+                if (icmp_header->type == ICMP_ECHOREPLY || icmp_header->type == ICMP_TIME_EXCEEDED)
+                    printf("%.3fms ", ((float)(end.tv_usec - start.tv_usec) / 1000) + ((end.tv_sec - start.tv_sec) * 1000));
                 if (icmp_header->type == ICMP_ECHOREPLY)
-                    packettimes[i] = ((float)(end.tv_usec - start.tv_usec) / 1000) + ((end.tv_sec - start.tv_sec) * 1000);
+                    reached_dest = 1;
             }
             else
                 fprintf(stderr, "Error: packet received with type %d\n", icmp_header.type);
         }
-        printf("%s ", source_address);
-        for (size_t i = 0; i < 3; i++)
-        {
-            if (packettimes[i] > 0)
-                printf("%.3fms ", packettimes[i]);
-            else
-                printf("* ");
-        }
         printf("\n");
-        hops++;
-        iph.iph_ttl++;
-        if (hops == MAX_HOPS || source_address.sin_addr.s_addr == destination_address.sin_addr.s_addr)
+        // end condition
+        if (hops == MAX_HOPS || reached_dest || ttl >= 64)
             break;
-        sleep(SLEEP_TIME);
+        // increment TTL and hop no
+        ttl++;
+        hops++;
     }
     close(sock);
     return 0;

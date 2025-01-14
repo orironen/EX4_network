@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wextra -Werror -std=c99 -pedantic
 RM = rm -f
 HEADERS = config.h
 EXECS = ping traceroute
-IP = 1.1.1.1
+IP = 8.8.8.8
 
 .PHONY: all default clean runp runsp
 
@@ -26,7 +26,7 @@ runsp: ping
 runt: traceroute
 	sudo ./traceroute -a $(IP)
 
-runsp: ping
+runst: traceroute
 	sudo strace ./traceroute -a $(IP)
 
 clean:
