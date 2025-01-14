@@ -20,7 +20,7 @@ struct ipheader
     unsigned short int iph_ident;    // Identification
     unsigned short int iph_flag : 3, // Fragmentation flags
         iph_offset : 13;             // Flags offset
-    unsigned char iph_ttl : 1;       // Time to Live
+    unsigned char iph_ttl;           // Time to Live
     unsigned char iph_protocol : 1;  // Protocol type
     unsigned short int iph_chksum;   // IP datagram checksum
     struct sockaddr iph_sourceip;    // Source IP address
@@ -67,12 +67,14 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Error: Invalid source address.");
         return 1;
     }
+    iph.iph_ttl = 1;
     // create ICMP header
     struct icmphdr icmp_header;
     icmp_header.type = ICMP_ECHO;
     icmp_header.code = 0;
     icmp_header.un.echo.id = htons(getpid());
     int seq = 0;
+    int hops = 0;
     // create poll structure
     struct pollfd fds[1];
     fds[0].fd = sock;
@@ -94,5 +96,74 @@ int main(int argc, char *argv[])
         int checksum = calculate_checksum(buffer, sizeof(iph) + sizeof(icmp_header) + payload_size);
         iph.iph_chksum = checksum;
         icmp_header.checksum = checksum;
+        struct icmphdr *pckt_hdr = (struct icmphdr *)buffer;
+        pckt_hdr->checksum = icmp_header.checksum;
+        // set time intervals between each hop
+        float packettimes[3];
+        memset(&packettimes, 0, sizeof(packettimes));
+        // initialize source address
+        struct sockaddr_in source_address;
+        for (size_t i = 0; i < 3; i++)
+        {
+            struct timeval start, end;
+            // get start time
+            gettimeofday(&start, NULL);
+            // send packet
+            if (sendto(sock, buffer, (sizeof(iph) + sizeof(icmp_header) + payload_size), 0, (struct sockaddr *)&destination_address, sizeof(destination_address)) <= 0)
+            {
+                perror("sendto(2)");
+                close(sock);
+                return 1;
+            }
+            // wait for reply
+            int ret = poll(fds, 1, TIMEOUT);
+            if (ret == 0)
+            {
+                fprintf(stderr, "Request timeout for icmp_seq %d, ignoring.\n", seq);
+                continue;
+            }
+            else if (ret < 0)
+            {
+                perror("poll(2)");
+                close(sock);
+                return 1;
+            }
+            if (fds[0].revents & POLLIN)
+            {
+                // get source
+                memset(&source_address, 0, sizeof(source_address));
+                memset(buffer, 0, sizeof(buffer));
+                if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&source_address, &(socklen_t){sizeof(source_address)}) <= 0)
+                {
+                    perror("recvfrom(2)");
+                    close(sock);
+                    return 1;
+                }
+                // get end time
+                gettimeofday(&end, NULL);
+                struct iphdr *ip_header = (struct iphdr *)buffer;
+                struct icmphdr *icmp_header = (struct icmphdr *)(buffer + ip_header->ihl * 4);
+                if (icmp_header->type == ICMP_ECHOREPLY)
+                    packettimes[i] = ((float)(end.tv_usec - start.tv_usec) / 1000) + ((end.tv_sec - start.tv_sec) * 1000);
+            }
+            else
+                fprintf(stderr, "Error: packet received with type %d\n", icmp_header.type);
+        }
+        printf("%s ", source_address);
+        for (size_t i = 0; i < 3; i++)
+        {
+            if (packettimes[i] > 0)
+                printf("%.3fms ", packettimes[i]);
+            else
+                printf("* ");
+        }
+        printf("\n");
+        hops++;
+        iph.iph_ttl++;
+        if (hops == MAX_HOPS || source_address.sin_addr.s_addr == destination_address.sin_addr.s_addr)
+            break;
+        sleep(SLEEP_TIME);
     }
+    close(sock);
+    return 0;
 }
