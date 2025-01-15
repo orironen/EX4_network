@@ -16,10 +16,9 @@
 #include <netinet/ip6.h>
 
 #define MAX_RETRY 3
-#define TIMEOUT 10000 // זמן קצוב 10 שניות
 #define SLEEP_TIME 1  // זמן שינה בין פינגים
 #define BUFFER_SIZE 1024
-#define MAX_REQUESTS 4
+
 
 int main(int argc, char *argv[]) {
 	if (argc != 2)
@@ -39,8 +38,8 @@ int main(int argc, char *argv[]) {
 	struct pollfd fds[1];
 
 	int opt;
-	int protocol_type = 0; //
-	int count = 0;
+	int protocol_type = 0;
+	int count = 0; //amount of pings to set
 	int flood = 0;
 
 	while ((opt = getopt(argc, argv, "a:t:c:f")) != -1)
@@ -69,8 +68,12 @@ int main(int argc, char *argv[]) {
 				printf("Invalid number of flag\n");
 				return -1;
 			}
-			printf("Pinging address: %s\n", argv[1]);
-			printf("Protocol: IPv%d\n", protocol_type);
+			break;
+			case 'c':
+				count = atoi(optarg);
+			break;
+			case 'f':
+				flood = 1;
 			break;
 		}
 	}
@@ -92,6 +95,9 @@ int main(int argc, char *argv[]) {
 		seq = 0;
 
 		while (1) {
+			if (count > 0 && seq >= count) {
+				break;
+			}
 			memset(buffer, 0, sizeof(buffer));
 			icmp_header.un.echo.sequence = htons(seq++);
 			icmp_header.checksum = 0;
@@ -159,7 +165,10 @@ int main(int argc, char *argv[]) {
 				else
 					fprintf(stderr, "Error: packet received with type %d\n", icmp_header->type);
 			}
-			sleep(SLEEP_TIME);
+			count--;
+			if (!flood) {
+				sleep(SLEEP_TIME);
+			}
 		}
 	}
     else if (protocol_type == 6){
@@ -178,6 +187,9 @@ int main(int argc, char *argv[]) {
     	seq=0;
 
 		while (1) {
+			if (count > 0 && seq >= count) {
+				break;
+			}
 			memcpy(buffer + sizeof(icmp6_header), msg, payload_size);
 			memset(buffer, 0, sizeof(buffer));
 			icmp6_header.icmp6_seq  = htons(seq++);
@@ -228,25 +240,29 @@ int main(int argc, char *argv[]) {
 				}
 				retries = 0;
 				gettimeofday(&end, NULL);
-				struct ip6_hdr *ip6_header = (struct ip6_hdr *)buffer;
 				struct icmp6_hdr *icmp6_header = (struct icmp6_hdr *)(buffer + sizeof(struct ip6_hdr));
 				if (icmp6_header->icmp6_type == ICMP6_ECHO_REPLY)
 				{
 					float rtt = ((float)(end.tv_usec - start.tv_usec) / 1000) + ((end.tv_sec - start.tv_sec) * 1000);
 					char source_ip[INET6_ADDRSTRLEN];
 					inet_ntop(AF_INET6, &source_address.sin6_addr, source_ip, sizeof(source_ip));
-					fprintf(stdout, "%ld bytes from %s: icmp_seq=%d time=%.2fms\n",payload_size,source_ip,ntohs(icmp6_header.icmp6_seq),rtt);
+					fprintf(stdout, "%d bytes from %s: icmp_seq=%d time=%.2fms\n", payload_size, source_ip, ntohs(icmp6_header->icmp6_seq), rtt);
 					if (seq == MAX_REQUESTS)
 						break;
 				}
 				else
 					fprintf(stderr, "Error: packet received with type %d\n", icmp6_header->icmp6_type);
 			}
-			sleep(SLEEP_TIME);
+			count--;
+			if (!flood) {
+				sleep(SLEEP_TIME);
+			}
 		}
     }
+	close(sock);
 
-    }
+	return 0;
+}
 
 
 
