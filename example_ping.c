@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
 		memcpy(buffer + sizeof(icmp_header), msg, payload_size);
 
 		// Calculate the checksum of the ICMP packet.
-		icmp_header.checksum = calculate_checksum(buffer, sizeof(icmp_header) + payload_size);
+		icmp_header.checksum = calculate_checksum4(buffer, sizeof(icmp_header) + payload_size);
 
 		// Set the checksum of the ICMP packet to the calculated value.
 		// Instead of using the memcpy function, we can just set the value directly.

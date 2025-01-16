@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
         // add payload after
         memcpy(buffer + sizeof(icmp_header), msg, payload_size);
         // calculate checksum
-        int checksum = calculate_checksum(buffer, sizeof(icmp_header) + payload_size);
+        int checksum = calculate_checksum4(buffer, sizeof(icmp_header) + payload_size);
         icmp_header.checksum = checksum;
         struct icmphdr *pckt_hdr = (struct icmphdr *)buffer;
         pckt_hdr->checksum = icmp_header.checksum;

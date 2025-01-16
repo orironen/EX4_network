@@ -1,6 +1,6 @@
 #include "config.h"
 
-unsigned short int calculate_checksum(void *data, unsigned int bytes)
+unsigned short int calculate_checksum4(void *data, unsigned int bytes)
 {
     unsigned short int *data_pointer = (unsigned short int *)data;
     unsigned int total_sum = 0;
@@ -22,4 +22,8 @@ unsigned short int calculate_checksum(void *data, unsigned int bytes)
 
     // Return the one's complement of the result.
     return (~((unsigned short int)total_sum));
+}
+
+unsigned short int calculate_checksum6(void *data, unsigned int bytes)
+{
 }
