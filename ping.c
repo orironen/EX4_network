@@ -195,10 +195,19 @@ int main(int argc, char *argv[])
 			}
 			return 1;
 		}
+		struct sockaddr_in6 local_addr;
+		socklen_t addr_len = sizeof(local_addr);
+		if (getsockname(sock, (struct sockaddr *)&local_addr, &addr_len) < 0)
+		{
+			perror("getsockname");
+			close(sock);
+			return 1;
+		}
 		// ip header
 		struct ip6_hdr ip6_header;
 		ip6_header.ip6_dst = destination_address6.sin6_addr;
-		getsockname(sock, &ip6_header.ip6_src, ip6_header.ip6_ctlun.ip6_un1.ip6_un1_plen);
+		ip6_header.ip6_src = local_addr.sin6_addr;
+		ip6_header.ip6_ctlun.ip6_un1.ip6_un1_nxt = IPPROTO_ICMPV6;
 		// poll
 		fds[0].fd = sock;
 		fds[0].events = POLLIN;
@@ -254,7 +263,7 @@ int main(int argc, char *argv[])
 				struct sockaddr_in6 source_address;
 				memset(buffer, 0, sizeof(buffer));
 				memset(&source_address, 0, sizeof(source_address));
-				if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&source_address, &(socklen_t){sizeof(source_address)}) <= 0)
+				if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&source_address, &addr_len) <= 0)
 				{
 					perror("recvfrom(2)");
 					close(sock);
