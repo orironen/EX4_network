@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
 
 		while (1)
 		{
-			if (count > 0 && seq >= count)
+			if (count == 0)
 				break;
 			memcpy(buffer + sizeof(icmp6_header), msg, payload_size);
 			memset(buffer, 0, sizeof(buffer));

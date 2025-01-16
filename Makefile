@@ -18,10 +18,10 @@ $(EXECS): %: %.o config.o
 	$(CC) $(CFLAGS) -c $< -o $@
 
 runp: ping
-	sudo ./ping -a $(IP)
+	sudo ./ping -a $(IP) -t 6
 
 runsp: ping
-	sudo strace ./ping -a $(IP)
+	sudo strace ./ping -a $(IP) -t 6
 
 runt: traceroute
 	sudo ./traceroute -a $(IP)
