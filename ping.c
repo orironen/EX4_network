@@ -74,6 +74,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	int sock;
+	int count_sent = count;
 	int count_received = 0;
 	float total_time = 0, min_time = -1, max_time = 0;
 	struct pollfd fds[1];
@@ -296,15 +297,11 @@ int main(int argc, char *argv[])
 	}
 	if (count_received > 0)
 	{
-		printf("\nStatistics for %d pings:\n", count_received);
-		printf("Minimum RTT = %.2f ms\n", min_time);
-		printf("Maximum RTT = %.2f ms\n", max_time);
-		printf("Average RTT = %.2f ms\n", total_time / count_received);
+		printf("\n%d packets transmitted, %d recieved, time %.2fms\n", count_sent, count_received, total_time);
+		printf("rtt min/avg/max = %.2f/%.2f/%.2fms\n", min_time, max_time, total_time / count_received);
 	}
 	else
-	{
 		fprintf(stderr, "No responses received.\n");
-	}
 	close(sock);
 	return 0;
 }
