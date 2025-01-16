@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -Werror -std=c99 -pedantic
 RM = rm -f
 HEADERS = config.h
-EXECS = ping traceroute
+EXECS = ping traceroute discovery
 IP = 8.8.8.8
 
 .PHONY: all default clean runp runsp
