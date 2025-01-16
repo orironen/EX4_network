@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
         icmp_header.checksum = checksum;
         struct icmphdr *pckt_hdr = (struct icmphdr *)buffer;
         pckt_hdr->checksum = icmp_header.checksum;
-        // set source address
+        // set destination address
         memset(&destination_address, 0, sizeof(destination_address));
         destination_address.sin_family = AF_INET;
         destination_address.sin_addr.s_addr = addr_range[i];
