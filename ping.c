@@ -9,11 +9,11 @@
 #include <sys/socket.h>		 // Definitions for socket operations (socket, sendto, recvfrom)
 #include <sys/time.h>		 // Time types (struct timeval and gettimeofday)
 #include <unistd.h>			 // UNIX standard function definitions (getpid, close, sleep)
-#include "config.h"			 // Header file for the program (calculate_checksum function and some constants)
 #include <stdlib.h>
 #include <getopt.h>
 #include <netinet/icmp6.h>
 #include <netinet/ip6.h>
+#include "config.h" // Header file for the program (calculate_checksum function and some constants)
 
 int main(int argc, char *argv[])
 {
@@ -195,6 +195,10 @@ int main(int argc, char *argv[])
 			}
 			return 1;
 		}
+		// ip header
+		struct ip6_hdr ip6_header;
+		ip6_header.ip6_dst = destination_address6.sin6_addr;
+		getsockname(sock, &ip6_header.ip6_src, ip6_header.ip6_ctlun.ip6_un1.ip6_un1_plen);
 		// poll
 		fds[0].fd = sock;
 		fds[0].events = POLLIN;
@@ -215,8 +219,7 @@ int main(int argc, char *argv[])
 			icmp6_header.icmp6_cksum = 0;
 			memcpy(buffer, &icmp6_header, sizeof(icmp6_header));
 			memcpy(buffer + sizeof(icmp6_header), msg, payload_size);
-			icmp6_header.icmp6_cksum = calculate_checksum4(buffer, sizeof(icmp6_header) + payload_size);
-
+			icmp6_header.icmp6_cksum = calculate_checksum6(&ip6_header, buffer, sizeof(icmp6_header) + payload_size, ip6_header.ip6_ctlun.ip6_un1.ip6_un1_nxt);
 			struct icmphdr *pckt_hdr = (struct icmphdr *)buffer;
 			pckt_hdr->checksum = icmp6_header.icmp6_cksum;
 			struct timeval start, end;
