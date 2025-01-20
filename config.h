@@ -1,7 +1,7 @@
 #ifndef _PING_H
 #define _PING_H
 
-#define TIMEOUT 2000
+#define TIMEOUT 10
 #define BUFFER_SIZE 1024
 #define SLEEP_TIME 1
 #define MAX_REQUESTS 0
