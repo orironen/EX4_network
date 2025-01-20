@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
 			icmp_header.checksum = 0;
 			memcpy(buffer, &icmp_header, sizeof(icmp_header));
 			memcpy(buffer + sizeof(icmp_header), msg, payload_size);
-			icmp_header.checksum = calculate_checksum4(buffer, sizeof(icmp_header) + payload_size);
+			icmp_header.checksum = calculate_checksum(buffer, sizeof(icmp_header) + payload_size);
 
 			struct icmphdr *pckt_hdr = (struct icmphdr *)buffer;
 			pckt_hdr->checksum = icmp_header.checksum;
@@ -228,7 +228,7 @@ int main(int argc, char *argv[])
 			icmp6_header.icmp6_cksum = 0;
 			memcpy(buffer, &icmp6_header, sizeof(icmp6_header));
 			memcpy(buffer + sizeof(icmp6_header), msg, payload_size);
-			icmp6_header.icmp6_cksum = calculate_checksum6(&ip6_header, buffer, sizeof(icmp6_header) + payload_size, ip6_header.ip6_ctlun.ip6_un1.ip6_un1_nxt);
+            icmp6_header.icmp6_cksum = calculate_checksum(buffer, sizeof(icmp6_header) + payload_size);
 			struct icmphdr *pckt_hdr = (struct icmphdr *)buffer;
 			pckt_hdr->checksum = icmp6_header.icmp6_cksum;
 			struct timeval start, end;
