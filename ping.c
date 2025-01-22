@@ -22,12 +22,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Usage: %s -a <destination_ip> -t <ip_protocol> (-c <num_of_pings>) (-f)\n", argv[0]);
 		return 1;
 	}
-	struct sockaddr_in destination_address4;
-	struct sockaddr_in6 destination_address6;
-	char buffer[BUFFER_SIZE] = {0};
-	char *msg = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$^&*()_+{}|:<>?~`-=[]',.";
-	int payload_size = strlen(msg) + 1;
-	int retries = 0;
+	struct sockaddr_in destination_address4;// Structure for IPv4 destination address
+	struct sockaddr_in6 destination_address6;// Structure for IPv6 destination address
+	char buffer[BUFFER_SIZE] = {0};// Buffer for sending and receiving packets
+	char *msg = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$^&*()_+{}|:<>?~`-=[]',.";// Payload message
+	int payload_size = strlen(msg) + 1; // Size of the payload
+	int retries = 0;// Counter for retries
 	memset(&destination_address4, 0, sizeof(destination_address4));
 	memset(&destination_address6, 0, sizeof(destination_address6));
 	int seq = 0;
