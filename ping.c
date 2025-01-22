@@ -22,8 +22,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Usage: %s -a <destination_ip> -t <ip_protocol> (-c <num_of_pings>) (-f)\n", argv[0]);
 		return 1;
 	}
-	struct sockaddr_in destination_address4;// Structure for IPv4 destination address
-	struct sockaddr_in6 destination_address6;// Structure for IPv6 destination address
+	struct sockaddr_in destination_address4;// IPv4 destination address
+	struct sockaddr_in6 destination_address6;// IPv6 destination address
 	char buffer[BUFFER_SIZE] = {0};// Buffer for sending and receiving packets
 	char *msg = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$^&*()_+{}|:<>?~`-=[]',.";// Payload message
 	int payload_size = strlen(msg) + 1; // Size of the payload
@@ -37,6 +37,7 @@ int main(int argc, char *argv[])
 	int flood = 0;
 	char *dest_addr = NULL;
 
+	// Parse command-line arguments
 	while ((opt = getopt(argc, argv, "a:t:c:f")) != -1)
 	{
 		switch (opt)
@@ -74,11 +75,11 @@ int main(int argc, char *argv[])
 		}
 	}
 	int sock;
-	int count_sent = count;
-	int count_received = 0;
+	int count_sent = count;// Total packets sent
+	int count_received = 0;// Total packets received
 	float total_time = 0, min_time = -1, max_time = 0;
-	struct pollfd fds[1];
-	if (protocol_type == 4)
+	struct pollfd fds[1];// File descriptor for poll
+	if (protocol_type == 4)// IPv4 setup
 	{
 		sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 		// poll
@@ -91,7 +92,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "you need to run the program with sudo.\n");
 			return 1;
 		}
-		struct icmphdr icmp_header;
+		struct icmphdr icmp_header;// ICMP header for requests
 		icmp_header.type = ICMP_ECHO;
 		icmp_header.code = 0;
 		icmp_header.un.echo.id = htons(getpid());
@@ -99,19 +100,21 @@ int main(int argc, char *argv[])
 		fprintf(stdout, "PING %s with %d bytes of data:\n", dest_addr, payload_size);
 		while (1)
 		{
-			if (count == 0)
+			if (count == 0)// Stop when count reaches 0
 				break;
-			memset(buffer, 0, sizeof(buffer));
-			icmp_header.un.echo.sequence = htons(seq++);
-			icmp_header.checksum = 0;
+			memset(buffer, 0, sizeof(buffer));// Clear buffer
+			icmp_header.un.echo.sequence = htons(seq++);// Set sequence number
+			icmp_header.checksum = 0; // Reset checksum
+			// Copy ICMP header and payload to buffer
 			memcpy(buffer, &icmp_header, sizeof(icmp_header));
 			memcpy(buffer + sizeof(icmp_header), msg, payload_size);
+			// Calculate checksum and update header
 			icmp_header.checksum = calculate_checksum(buffer, sizeof(icmp_header) + payload_size);
-
 			struct icmphdr *pckt_hdr = (struct icmphdr *)buffer;
 			pckt_hdr->checksum = icmp_header.checksum;
 			struct timeval start, end;
 			gettimeofday(&start, NULL);
+			// Send ICMP packet
 			if (sendto(sock, buffer, (sizeof(icmp_header) + payload_size), 0, (struct sockaddr *)&destination_address4, sizeof(destination_address4)) <= 0)
 			{
 				perror("sendto(2)");
@@ -136,7 +139,7 @@ int main(int argc, char *argv[])
 				close(sock);
 				return 1;
 			}
-			if (fds[0].revents & POLLIN)
+			if (fds[0].revents & POLLIN)// Packet received
 			{
 				struct sockaddr_in source_address;
 				memset(buffer, 0, sizeof(buffer));
@@ -151,7 +154,7 @@ int main(int argc, char *argv[])
 				gettimeofday(&end, NULL);
 				struct iphdr *ip_header = (struct iphdr *)buffer;
 				struct icmphdr *icmp_header = (struct icmphdr *)(buffer + ip_header->ihl * 4);
-				if (icmp_header->type == ICMP_ECHOREPLY)
+				if (icmp_header->type == ICMP_ECHOREPLY)// Echo reply received
 				{
 					float rtt = ((float)(end.tv_usec - start.tv_usec) / 1000) + ((end.tv_sec - start.tv_sec) * 1000);
 					total_time += rtt;
@@ -169,7 +172,7 @@ int main(int argc, char *argv[])
 							inet_ntoa(source_address.sin_addr),
 							ntohs(icmp_header->un.echo.sequence),
 							ip_header->ttl, rtt);
-
+					//stop after max request
 					if (seq == MAX_REQUESTS)
 						break;
 				}
@@ -177,6 +180,7 @@ int main(int argc, char *argv[])
 					fprintf(stderr, "Error: packet received with type %d\n", icmp_header->type);
 			}
 			count--;
+			// Sleep between pings if not flood
 			if (!flood)
 			{
 				sleep(SLEEP_TIME);
@@ -186,10 +190,10 @@ int main(int argc, char *argv[])
 	else if (protocol_type == 6)
 	{
 		sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
-		if (sock < 0)
+		if (sock < 0)//if socket creation failed
 		{
 			perror("socket(2)");
-			if (errno == EACCES || errno == EPERM)
+			if (errno == EACCES || errno == EPERM)// If permission error
 			{
 				fprintf(stderr, "You need to run the program with sudo.\n");
 			}
@@ -197,6 +201,7 @@ int main(int argc, char *argv[])
 		}
 		struct sockaddr_in6 local_addr;
 		socklen_t addr_len = sizeof(local_addr);
+		// Retrieve local address with the socket
 		if (getsockname(sock, (struct sockaddr *)&local_addr, &addr_len) < 0)
 		{
 			perror("getsockname");
@@ -220,8 +225,9 @@ int main(int argc, char *argv[])
 
 		while (1)
 		{
-			if (count == 0)
+			if (count == 0)// if no packets left to send
 				break;
+			// Prepare the ICMPv6 message
 			memcpy(buffer + sizeof(icmp6_header), msg, payload_size);
 			memset(buffer, 0, sizeof(buffer));
 			icmp6_header.icmp6_seq = htons(seq++);
@@ -233,6 +239,7 @@ int main(int argc, char *argv[])
 			pckt_hdr->checksum = icmp6_header.icmp6_cksum;
 			struct timeval start, end;
 			gettimeofday(&start, NULL);
+			// Send the ICMPv6 packet
 			if (sendto(sock, buffer, sizeof(icmp6_header) + payload_size, 0, (struct sockaddr *)&destination_address6, sizeof(destination_address6)) <= 0)
 			{
 				perror("sendto(2)");
@@ -240,8 +247,9 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 			fprintf(stdout, "PING %s with %d bytes of data:\n", dest_addr, payload_size);
+			// Wait for a response with a timeout
 			int ret = poll(fds, 1, TIMEOUT);
-			if (ret == 0)
+			if (ret == 0)// Maximum retries reached
 			{
 				if (++retries == MAX_RETRY)
 				{
@@ -252,7 +260,7 @@ int main(int argc, char *argv[])
 				--seq;
 				continue;
 			}
-			else if (ret < 0)
+			else if (ret < 0) // Error during poll
 			{
 				perror("poll(2)");
 				close(sock);
@@ -263,6 +271,7 @@ int main(int argc, char *argv[])
 				struct sockaddr_in6 source_address;
 				memset(buffer, 0, sizeof(buffer));
 				memset(&source_address, 0, sizeof(source_address));
+				// Receive the response
 				if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&source_address, &addr_len) <= 0)
 				{
 					perror("recvfrom(2)");
@@ -273,8 +282,10 @@ int main(int argc, char *argv[])
 				gettimeofday(&end, NULL);
 				struct ip6_hdr *ip6_header = (struct ip6_hdr *)buffer;
 				struct icmp6_hdr *icmp6_header = (struct icmp6_hdr *)(buffer + sizeof(struct ip6_hdr));
+				// Check echo reply
 				if (icmp6_header->icmp6_type == ICMP6_ECHO_REPLY)
 				{
+					// Calculate rtt
 					float rtt = ((float)(end.tv_usec - start.tv_usec) / 1000) + ((end.tv_sec - start.tv_sec) * 1000);
 					total_time += rtt;
 					if (min_time == -1 || rtt < min_time)
@@ -294,6 +305,7 @@ int main(int argc, char *argv[])
 							ip6_header->ip6_hlim, rtt);
 					inet_ntop(AF_INET6, &source_address.sin6_addr, source_ip, sizeof(source_ip));
 					fprintf(stdout, "%d bytes from %s: icmp_seq=%d time=%.2fms\n", payload_size, source_ip, ntohs(icmp6_header->icmp6_seq), rtt);
+					// Stop after maximum requests
 					if (seq == MAX_REQUESTS)
 						break;
 				}
@@ -307,7 +319,7 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
-	if (count_received > 0)
+	if (count_received > 0)// any responses were received
 	{
 		printf("\n%d packets transmitted, %d recieved, time %.2fms\n", count_sent, count_received, total_time);
 		printf("rtt min/avg/max = %.2f/%.2f/%.2fms\n", min_time, max_time, total_time / count_received);
